@@ -213,7 +213,7 @@ int chiDFEMDiffusionSetBCProperty(lua_State *L)
     {
       chi::log.LogAllError()
         << "Unsupported boundary type encountered in call to "
-        << "chiCFEMDiffusionSetBCProperty(..,\"boundary_type\",.. :"
+        << "chiDFEMDiffusionSetBCProperty(..,\"boundary_type\",.. :"
         << type_name;
       chi::Exit(EXIT_FAILURE);
     }

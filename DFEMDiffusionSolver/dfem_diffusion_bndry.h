@@ -29,7 +29,7 @@ class dfem_diffusion::Boundary
   std::array<double, 3> values = {0.,0.,0.};
 };
 
-// class cfem_diffusion::Boundary
+// class dfem_diffusion::Boundary
 // {
 // public:
 //   BoundaryType type;
@@ -40,7 +40,7 @@ class dfem_diffusion::Boundary
 // 
 // //###################################################################
 // /**Reflecting boundary condition.*/
-// class cfem_diffusion::BoundaryReflecting : public cfem_diffusion::Boundary
+// class dfem_diffusion::BoundaryReflecting : public dfem_diffusion::Boundary
 // {
 // public:
 //   BoundaryReflecting() : Boundary(BoundaryType::Reflecting) {}
@@ -48,7 +48,7 @@ class dfem_diffusion::Boundary
 
 // //###################################################################
 // /**Dirichlet boundary.*/
-// class cfem_diffusion::BoundaryDirichlet : public cfem_diffusion::Boundary
+// class dfem_diffusion::BoundaryDirichlet : public dfem_diffusion::Boundary
 // {
 // public:
 //   double boundary_value=0.0;
@@ -85,7 +85,7 @@ class dfem_diffusion::Boundary
 // \frac{1}{4}\phi + \frac{1}{2}D\hat{n}\cdot \nabla \phi = 0
 // \f]
 //  */
-// class cfem_diffusion::BoundaryRobin : public cfem_diffusion::Boundary
+// class dfem_diffusion::BoundaryRobin : public dfem_diffusion::Boundary
 // {
 // public:
 //   double a=0.25;

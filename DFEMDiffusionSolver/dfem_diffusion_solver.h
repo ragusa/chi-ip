@@ -32,16 +32,17 @@ private:
   chi_objects::ChiTimer t_assembly;
   chi_objects::ChiTimer t_solve;
 
-  double time_assembly=0.0, time_solve=0.0;
+  double time_assembly=0.0, time_solve = 0.0;
   bool verbose_info=true;
 
 public:
-  chi_mesh::MeshContinuumPtr grid_ptr=nullptr;
+  chi_mesh::MeshContinuumPtr grid_ptr = nullptr;
 
-  chi_math::SDMPtr sdm_ptr =nullptr;
+  chi_math::SDMPtr sdm_ptr = nullptr;
 
   size_t num_local_dofs = 0;
   size_t num_globl_dofs = 0;
+  chi_math::UnknownManager                 unknown_manager;
 
   Vec            x = nullptr;            // approx solution
   Vec            b = nullptr;            // RHS
@@ -60,6 +61,16 @@ public:
   void Initialize(bool verbose);
 
   void Execute() override;
+
+  double HPerpendicular(const chi_mesh::Cell& cell, unsigned int f);
+
+  int MapFaceNodeDisc(const chi_mesh::Cell& cur_cell,
+                      const chi_mesh::Cell& adj_cell,
+                      const std::vector<chi_mesh::Vector3>& cc_node_locs,
+                      const std::vector<chi_mesh::Vector3>& ac_node_locs,
+                      size_t ccf, size_t acf,
+                      size_t ccfi,
+                      double epsilon=1.0e-12);
 
   static
   double CallLua_iXYZFunction(lua_State* L,
