@@ -2,7 +2,7 @@
 chiMeshHandlerCreate()
  
 mesh={}
-N=100
+N=10
 L=2
 xmin = -L/2
 dx = L/N
@@ -74,4 +74,9 @@ chiSolverExecute(phys1)
 
 ----############################################### Visualize the field function
 fflist,count = chiGetFieldFunctionList(phys1)
+
+print("here in lua",fflist[1])
+
 chiExportFieldFunctionToVTK(fflist[1],"square","Flux_Diff")
+
+print("end of lua input")

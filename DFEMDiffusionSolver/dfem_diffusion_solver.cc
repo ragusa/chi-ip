@@ -18,6 +18,8 @@
 #include "ChiMesh/chi_mesh.h"
 #include "ChiMath/SpatialDiscretization/FiniteElement/finite_element.h"
 
+#define DefaultBCDirichlet BoundaryCondition{BCType::DIRICHLET,{0,0,0}}
+
 //============================================= constructor
 dfem_diffusion::Solver::Solver(const std::string& in_solver_name):
   chi_physics::Solver(in_solver_name, { {"max_iters", int64_t(500)   },
@@ -37,8 +39,8 @@ dfem_diffusion::Solver::~Solver()
 void dfem_diffusion::Solver::Initialize(bool verbose)
 {
   chi::log.Log() << "\n"
-                     << chi::program_timer.GetTimeString() << " "
-                     << TextName() << ": Initializing DFEM Diffusion solver ";
+                 << chi::program_timer.GetTimeString() << " "
+                 << TextName() << ": Initializing DFEM Diffusion solver ";
   this->verbose_info = verbose;
   //============================================= Get grid
   grid_ptr = chi_mesh::GetCurrentHandler().GetGrid();
@@ -309,7 +311,7 @@ void dfem_diffusion::Solver::Execute()
             chi_mesh::Vector3 vec_aij;
             for (size_t qp : fqp_data.QuadraturePointIndices())
               vec_aij +=
-                CallLua_iXYZFunction(L, "D_coef",imat,fqp_data.QPointXYZ(qp))/hm *
+                CallLua_iXYZFunction(L, "D_coef",imat,fqp_data.QPointXYZ(qp)) *
                 fqp_data.ShapeValue(jm, qp) * fqp_data.ShapeGrad(i, qp) *
                 fqp_data.JxW(qp);
             const double aij = -0.5 * n_f.Dot(vec_aij);
@@ -335,7 +337,7 @@ void dfem_diffusion::Solver::Execute()
             chi_mesh::Vector3 vec_aij;
             for (size_t qp : fqp_data.QuadraturePointIndices())
               vec_aij +=
-                CallLua_iXYZFunction(L, "D_coef",imat,fqp_data.QPointXYZ(qp))/hm *
+                CallLua_iXYZFunction(L, "D_coef",imat,fqp_data.QPointXYZ(qp)) *
                 fqp_data.ShapeValue(im, qp) * fqp_data.ShapeGrad(j, qp) *
                 fqp_data.JxW(qp);
             const double aij = -0.5 * n_f.Dot(vec_aij);
@@ -348,122 +350,35 @@ void dfem_diffusion::Solver::Execute()
       }//internal face
       else
       {
-        auto bc = DefaultBCDirichlet;
-        try {bc = m_bcs.at(face.neighbor_id);}
-        catch (const std::out_of_range& oor)
-        {throw std::logic_error(fname + ": unmapped boundary id.");}
+        const auto& bndry = boundaries[face.neighbor_id];
+        // Robin boundary
+        if (bndry.type == BoundaryType::Robin) {
+          const auto qp_face_data = cell_mapping.MakeFaceQuadraturePointData(f);
+          const size_t num_face_nodes = face.vertex_ids.size();
 
-        if (bc.type == BCType::DIRICHLET)
-        {
-          const double bc_value = bc.values[0];
+          const auto &aval = bndry.values[0];
+          const auto &bval = bndry.values[1];
+          const auto &fval = bndry.values[2];
 
-          //========================= Compute kappa
-          double Ckappa = 2.0;
-          if (cell.Type() == chi_mesh::CellType::SLAB)
-            Ckappa = 4.0; // fmax(4.0*Dg/hm,0.25);
-          if (cell.Type() == chi_mesh::CellType::POLYGON)
-            Ckappa = 4.0;
-          if (cell.Type() == chi_mesh::CellType::POLYHEDRON)
-            Ckappa = 8.0;
-
-          //========================= Assembly penalty terms
-          for (size_t fi=0; fi<num_face_nodes; ++fi)
-          {
-            const int i  = cell_mapping.MapFaceNode(f,fi);
-            const size_t imap = sdm.MapDOF(cell, i);
-
-            for (size_t fj=0; fj<num_face_nodes; ++fj)
-            {
-              const int jm = cell_mapping.MapFaceNode(f,fj);
-              const size_t jmmap = sdm.MapDOF(cell, jm);
-
-              double aij = 0.0;
-              for (size_t qp : fqp_data.QuadraturePointIndices())
-                aij += kappa *
-                       fqp_data.ShapeValue(i, qp) * fqp_data.ShapeValue(jm, qp) *
-                       fqp_data.JxW(qp);
-              double aij_bc_value = aij*bc_value;
-
-              if (not solution_function.empty())
-              {
-                aij_bc_value = 0.0;
-                for (size_t qp : fqp_data.QuadraturePointIndices())
-                  aij_bc_value +=
-                    kappa *CallLuaXYZFunction(L, solution_function,
-                                              fqp_data.QPointXYZ(qp)) *
-                    fqp_data.ShapeValue(i, qp) * fqp_data.ShapeValue(jm, qp) *
-                    fqp_data.JxW(qp);
-              }
-
-              MatSetValue(A, imap, jmmap, aij,ADD_VALUES);
-              VecSetValue(b, imap, aij_bc_value, ADD_VALUES);
-            }//for fj
-          }//for fi
-
-          //========================= Assemble gradient terms
-          // For the following comments we use the notation:
-          // Dk = 0.5* n dot nabla bk
-
-          // 0.5*D* n dot (b_j^+ - b_j^-)*nabla b_i^-
-          for (size_t i=0; i<num_nodes; i++)
-          {
-            // jcr: ask size_t versus int64_t
-            const size_t imap = sdm.MapDOF(cell, i);
-
-            for (size_t j=0; j<num_nodes; j++)
-            {
-              const size_t jmap = sdm.MapDOF(cell, j);
-
-              chi_mesh::Vector3 vec_aij;
-              for (size_t qp : fqp_data.QuadraturePointIndices())
-                vec_aij +=
-                  fqp_data.ShapeValue(j, qp) * fqp_data.ShapeGrad(i, qp) *
-                  fqp_data.JxW(qp) +
-                  fqp_data.ShapeValue(i, qp) * fqp_data.ShapeGrad(j, qp) *
-                  fqp_data.JxW(qp);
-              const double aij = -0.5
-                                * Dg
-                                * n_f.Dot(vec_aij);
-
-              double aij_bc_value = aij*bc_value;
-
-              if (not solution_function.empty())
-              {
-                chi_mesh::Vector3 vec_aij_mms;
-                for (size_t qp : fqp_data.QuadraturePointIndices())
-                  vec_aij_mms +=
-                    CallLuaXYZFunction(L, solution_function,
-                                       fqp_data.QPointXYZ(qp)) *
-                    (fqp_data.ShapeValue(j, qp) * fqp_data.ShapeGrad(i, qp) *
-                     fqp_data.JxW(qp) +
-                     fqp_data.ShapeValue(i, qp) * fqp_data.ShapeGrad(j, qp) *
-                     fqp_data.JxW(qp));
-                aij_bc_value = -0.5*Dg*n_f.Dot(vec_aij_mms);
-              }
-
-              MatSetValue(A, imap, jmap, aij, ADD_VALUES);
-              VecSetValue(b, imap, aij_bc_value, ADD_VALUES);
-            }//for fj
-          }//for i
-        }//Dirichlet BC
-        else if (bc.type == BCType::ROBIN)
-        {
-          const double aval = bc.values[0];
-          const double bval = bc.values[1];
-          const double fval = bc.values[2];
-
-          if (std::fabs(bval) < 1.0e-12) continue; //a and f assumed zero
+          chi::log.Log() << "Boundary  set as Robin with a,b,f = ("
+                         << aval << ","
+                         << bval << ","
+                         << fval << ") ";
+          // true Robin when a!=0, otherwise, it is a Neumann:
+          // Assert if b=0
+          if (std::fabs(bval) < 1e-8)
+            throw std::logic_error("if b=0, this is a Dirichlet BC, not a Robin BC");
 
           for (size_t fi=0; fi<num_face_nodes; fi++)
           {
-            const int i  = cell_mapping.MapFaceNode(f,fi);
+            const uint i  = cell_mapping.MapFaceNode(f,fi);
             const size_t ir = sdm.MapDOF(cell, i);
 
             if (std::fabs(aval) >= 1.0e-12)
             {
               for (size_t fj=0; fj<num_face_nodes; fj++)
               {
-                const int j  = cell_mapping.MapFaceNode(f,fj);
+                const uint j  = cell_mapping.MapFaceNode(f,fj);
                 const size_t jr = sdm.MapDOF(cell, j);
 
                 double aij = 0.0;
@@ -487,118 +402,82 @@ void dfem_diffusion::Solver::Execute()
             }//if f nonzero
           }//for fi
         }//Robin BC
-      }//boundary face
-    }//for face
-  }//for g
-}//for cell
-    //======================= Flag nodes for being on a boundary
-    std::vector<int> dirichlet_count(num_nodes, 0);
-    std::vector<double> dirichlet_value(num_nodes, 0.0);
-
-    const size_t num_faces = cell.faces.size();
-    for (size_t f=0; f<num_faces; ++f)
-    {
-      const auto& face = cell.faces[f];
-      // not a boundary face
-	    if (face.has_neighbor) continue; 
-	  
-      const auto& bndry = boundaries[face.neighbor_id];
-
-      // Robin boundary
-      if (bndry.type == BoundaryType::Robin)
-      { 
-        const auto  qp_face_data = cell_mapping.MakeFaceQuadraturePointData( f );
-        const size_t num_face_nodes = face.vertex_ids.size();
-
-        const auto& aval = bndry.values[0];
-        const auto& bval = bndry.values[1];
-        const auto& fval = bndry.values[2];
-
-//        chi::log.Log() << "Boundary  set as Robin with a,b,f = ("
-//                    << aval << ","
-//                    << bval << ","
-//                    << fval << ") ";
-        // true Robin when a!=0, otherwise, it is a Neumann:
-        // Assert if b=0
-        if (std::fabs(bval) < 1e-8)
-          throw std::logic_error("if b=0, this is a Dirichlet BC, not a Robin BC");
-        
-        // loop over nodes of that face
-        for (size_t fi=0; fi<num_face_nodes; ++fi)
+        // Dirichlet boundary
+        else if (bndry.type == BoundaryType::Dirichlet)
         {
-          const uint i = cell_mapping.MapFaceNode(f,fi);
-            
-          double entry_rhsi = 0.0;
-          for (size_t qp : qp_face_data.QuadraturePointIndices() )
-            entry_rhsi +=  qp_face_data.ShapeValue(i, qp) * qp_face_data.JxW(qp);
-          cell_rhs[i] +=  fval / bval * entry_rhsi;
-            
-          // only do this part if true Robin (i.e., a!=0)
-          if (std::fabs(aval) > 1.0e-8)
+          const double bc_value = bndry.values[0];
+          //========================= Compute kappa
+          double Ckappa = 2.0;
+          if (cell.Type() == chi_mesh::CellType::SLAB)
+            Ckappa = 4.0; // fmax(4.0*Dg/hm,0.25);
+          if (cell.Type() == chi_mesh::CellType::POLYGON)
+            Ckappa = 4.0;
+          if (cell.Type() == chi_mesh::CellType::POLYHEDRON)
+            Ckappa = 8.0;
+
+          //========================= Assembly penalty terms
+          for (size_t fi=0; fi<num_face_nodes; ++fi)
           {
+            // jcr int, uint, size_t ?
+            const uint i  = cell_mapping.MapFaceNode(f,fi);
+            const size_t imap = sdm.MapDOF(cell, i);
+
             for (size_t fj=0; fj<num_face_nodes; ++fj)
             {
-              const uint j = cell_mapping.MapFaceNode(f,fj);
-          
-              double entry_aij = 0.0;
-              for (size_t qp : qp_face_data.QuadraturePointIndices())
-                entry_aij +=  qp_face_data.ShapeValue(i, qp) *qp_face_data.ShapeValue(j, qp)
-                                * qp_face_data.JxW(qp);
-              Acell[i][j] += aval / bval * entry_aij;
+              const uint jm = cell_mapping.MapFaceNode(f,fj);
+              const size_t jmmap = sdm.MapDOF(cell, jm);
+
+              double aij = 0.0;
+              for (size_t qp : fqp_data.QuadraturePointIndices())
+                aij += Ckappa *
+                       CallLua_iXYZFunction(L, "D_coef",imat, fqp_data.QPointXYZ(qp)) / hm *
+                       fqp_data.ShapeValue(i, qp) * fqp_data.ShapeValue(jm, qp) *
+                       fqp_data.JxW(qp);
+              double aij_bc_value = aij*bc_value;
+
+              MatSetValue(A, imap, jmmap, aij,ADD_VALUES);
+              VecSetValue(b, imap, aij_bc_value, ADD_VALUES);
             }//for fj
-          }//end true Robin
-        }//for fi
-      }//if Robin
-	  
-	    // Dirichlet boundary
-	    if (bndry.type == BoundaryType::Dirichlet)
-      {
- 		    const size_t num_face_nodes = face.vertex_ids.size();
+          }//for fi
 
-        const auto& boundary_value = bndry.values[0];
+          //========================= Assemble gradient terms
+          // For the following comments we use the notation:
+          // Dk = 0.5* n dot nabla bk
 
-        // loop over nodes of that face
-        for (size_t fi=0; fi<num_face_nodes; ++fi)
-        {
-          const uint i = cell_mapping.MapFaceNode(f,fi);
-          dirichlet_count[i] += 1;
-          dirichlet_value[i] += boundary_value;
-        }//for fi
-      }//if Dirichlet
-	  
-    }//for face f
- 
-    //======================= Develop node mapping
-    std::vector<int64_t> imap(num_nodes, 0); //node-mapping
-    for (size_t i=0; i<num_nodes; ++i)
-      imap[i] = sdm.MapDOF(cell, i);
- 
-    //======================= Assembly into system
-    for (size_t i=0; i<num_nodes; ++i)
-    {
-      if (dirichlet_count[i]>0) //if Dirichlet boundary node
-      {
-        MatSetValue(A, imap[i], imap[i], 1.0, ADD_VALUES);
-		    // ----------------------------because we use DFEM, a given node is common to several faces
-		    const double aux = dirichlet_value[i]/dirichlet_count[i];
-        VecSetValue(b, imap[i], aux, ADD_VALUES);
-      }
-      else
-      {
-        for (size_t j=0; j<num_nodes; ++j)
-        {
-          if (dirichlet_count[j]==0) // not related to a dirichlet node
-            MatSetValue(A, imap[i], imap[j], Acell[i][j], ADD_VALUES);
-		      else // related to a dirichlet node
+          // 0.5*D* n dot (b_j^+ - b_j^-)*nabla b_i^-
+          for (size_t i=0; i<num_nodes; i++)
           {
-		        const double aux = dirichlet_value[j]/dirichlet_count[j];
-			      cell_rhs[i] -= Acell[i][j]*aux;
-          }
-        }//for j
-        VecSetValue(b, imap[i], cell_rhs[i], ADD_VALUES);
-      }
-    }//for i
+            // jcr: ask size_t versus int64_t
+            const size_t imap = sdm.MapDOF(cell, i);
+
+            for (size_t j=0; j<num_nodes; j++)
+            {
+              const size_t jmap = sdm.MapDOF(cell, j);
+
+              chi_mesh::Vector3 vec_aij;
+              for (size_t qp : fqp_data.QuadraturePointIndices())
+                vec_aij +=
+                  ( fqp_data.ShapeValue(j, qp) * fqp_data.ShapeGrad(i, qp) +
+                    fqp_data.ShapeValue(i, qp) * fqp_data.ShapeGrad(j, qp) ) *
+                  fqp_data.JxW(qp) *
+                  CallLua_iXYZFunction(L, "D_coef",imat, fqp_data.QPointXYZ(qp));
+
+              const double aij = -0.5* n_f.Dot(vec_aij);
+              double aij_bc_value = aij*bc_value;
+
+              MatSetValue(A, imap, jmap, aij, ADD_VALUES);
+              VecSetValue(b, imap, aij_bc_value, ADD_VALUES);
+            }//for fj
+          }//for i
+        }//Dirichlet BC
+        else
+        {
+
+        }//else BC
+      }//boundary face
+    }//for face f
   }//for cell
+
  
   chi::log.Log() << "Global assembly";
  
