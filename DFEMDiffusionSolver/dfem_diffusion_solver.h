@@ -44,6 +44,8 @@ public:
   size_t num_globl_dofs = 0;
   chi_math::UnknownManager                 unknown_manager;
 
+  std::vector<double> field;
+
   Vec            x = nullptr;            // approx solution
   Vec            b = nullptr;            // RHS
   Mat            A = nullptr;            // linear system matrix

@@ -160,11 +160,12 @@ void dfem_diffusion::Solver::Initialize(bool verbose)
   if (field_functions.empty())
   {
     auto unk_man = OneDofPerNode;
+    field.resize(n);
     auto initial_field_function =
       std::make_shared<chi_physics::FieldFunction>(
         std::string("phi"),   //Text name
         sdm_ptr,              //Spatial Discretization
-        &x,                   //Data vector
+        &field,               //Data vector
         unk_man);             //Unknown Manager
 
       field_functions.push_back(initial_field_function);
@@ -504,5 +505,9 @@ void dfem_diffusion::Solver::Execute()
   KSPSolve(petsc_solver.ksp,b,x);
  
   chi::log.Log() << "Done solving";
+
+  const auto& OneDofPerNode = sdm.UNITARY_UNKNOWN_MANAGER;
+  sdm.LocalizePETScVector(x,field,OneDofPerNode);
+
 
 }
