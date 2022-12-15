@@ -89,7 +89,8 @@ void dfem_diffusion::Solver::Initialize(bool verbose)
           boundaries.push_back({BoundaryType::Robin, {bndry_vals[0],
                                                       bndry_vals[1],
                                                       bndry_vals[2]}});
-          chi::log.Log() << "Boundary " << bndry << " set to robin." << bndry_vals[0]<<","<<bndry_vals[1]<<","<<bndry_vals[2];
+          chi::log.Log() << "Boundary " << bndry << " set to robin."
+                         << bndry_vals[0]<<","<<bndry_vals[1]<<","<<bndry_vals[2];
           break;
         }
         case BoundaryType::Vacuum:

@@ -2,7 +2,7 @@
 chiMeshHandlerCreate()
  
 mesh={}
-N=10
+N=100
 L=2
 xmin = -L/2
 dx = L/N
@@ -15,7 +15,6 @@ chiMeshCreateUnpartitioned2DOrthoMesh(mesh,mesh)
 chiVolumeMesherExecute();
  
 --############################################### Set Material IDs
---chiVolumeMesherSetMatIDToAll(0)
 vol0 = chiLogicalVolumeCreate(RPP,-1000,1000,-1000,1000,-1000,1000)
 chiVolumeMesherSetProperty(MATID_FROMLOGICAL,vol0,0)
 
@@ -52,31 +51,20 @@ chiVolumeMesherSetProperty(BNDRYID_FROMLOGICAL,w_vol,w_bndry)
 chiVolumeMesherSetProperty(BNDRYID_FROMLOGICAL,n_vol,n_bndry)
 chiVolumeMesherSetProperty(BNDRYID_FROMLOGICAL,s_vol,s_bndry)
 
---chiMeshHandlerExportMeshToVTK("Mesh")
-
 --############################################### Add material properties
 --#### DFEM stuff
 phys1 = chiDFEMDiffusionSolverCreate()
 
 chiSolverSetBasicOption(phys1, "residual_tolerance", 1E-8)
+
 chiDFEMDiffusionSetBCProperty(phys1,"boundary_type",e_bndry,"robin", 0.25, 0.5, 0.0)
 chiDFEMDiffusionSetBCProperty(phys1,"boundary_type",n_bndry,"reflecting")
 chiDFEMDiffusionSetBCProperty(phys1,"boundary_type",s_bndry,"reflecting")
 chiDFEMDiffusionSetBCProperty(phys1,"boundary_type",w_bndry,"robin", 0.25, 0.5, 0.0)
-
--- chiDFEMDiffusionSetProperty(phys1,"boundary_type",n_bndry,"reflecting")
--- chiDFEMDiffusionSetProperty(phys1,"boundary_type",s_bndry,"reflecting")
--- chiDFEMDiffusionSetProperty(phys1,"boundary_type",w_bndry,"neumann",2.0)
--- chiDFEMDiffusionSetProperty(phys1,"boundary_type",e_bndry,"dirichlet",1.0)
 
 chiSolverInitialize(phys1)
 chiSolverExecute(phys1)
 
 ----############################################### Visualize the field function
 fflist,count = chiGetFieldFunctionList(phys1)
-
-print("here in lua",fflist[1])
-
-chiExportFieldFunctionToVTK(fflist[1],"square_dfem","Flux_Diff")
-
-print("end of lua input")
+chiExportFieldFunctionToVTK(fflist[1],"square_robin_refl","Flux_Diff")
