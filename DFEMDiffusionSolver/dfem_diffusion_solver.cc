@@ -257,7 +257,7 @@ void dfem_diffusion::Solver::Execute()
         const auto imat_neigh  = adj_cell.material_id;
 
         //========================= Compute Ckappa IP
-        double Ckappa = 1.0;
+        double Ckappa = 1.0*10.0;
         if (cell.Type() == chi_mesh::CellType::SLAB)
           Ckappa = 2.0;
         if (cell.Type() == chi_mesh::CellType::POLYGON)
@@ -351,7 +351,7 @@ void dfem_diffusion::Solver::Execute()
 
       }//internal face
       else
-      {
+      { // boundary face
         const auto& bndry = boundaries[face.neighbor_id];
         // Robin boundary
         if (bndry.type == BoundaryType::Robin) {
@@ -400,16 +400,15 @@ void dfem_diffusion::Solver::Execute()
                 rhs_val += fqp_data.ShapeValue(i,qp) * fqp_data.JxW(qp);
               rhs_val *= (fval/bval);
 
-              VecSetValue(b,ir, -rhs_val, ADD_VALUES);
+              VecSetValue(b,ir, rhs_val, ADD_VALUES);
             }//if f nonzero
           }//for fi
         }//Robin BC
-        // Dirichlet boundary
         else if (bndry.type == BoundaryType::Dirichlet)
         {
           const double bc_value = bndry.values[0];
           //========================= Compute kappa
-          double Ckappa = 2.0;
+          double Ckappa = 2.0*10;
           if (cell.Type() == chi_mesh::CellType::SLAB)
             Ckappa = 4.0; // fmax(4.0*Dg/hm,0.25);
           if (cell.Type() == chi_mesh::CellType::POLYGON)

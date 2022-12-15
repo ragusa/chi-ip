@@ -1,12 +1,10 @@
 #include "chi_runtime.h"
 #include "chi_log.h"
 #include "ChiConsole/chi_console.h"
-#include "DFEMDiffusionSolver/lua/lua_utils.h"
+// #include "./DFEMDiffusionSolver/lua/lua_utils.h"
 
 #include "ChiMacros/lua_register_macro.h"
-
-// #include "ChiMath/PETScUtils/petsc_utils.h"
-// #include "ChiPhysics/FieldFunction2/fieldfunction2.h"
+#include "./ChiTech/LuaTest/unit_tests.h"
 
 int main(int argc, char* argv[])
 {
@@ -19,6 +17,7 @@ int main(int argc, char* argv[])
   auto L = console.consoleState;
   RegisterFunction(chiDFEMDiffusionSolverCreate);
   RegisterFunction(chiDFEMDiffusionSetBCProperty);
+  lua_register(L, "chiSimTest_IP_MMS_L2error", chi_unit_sim_tests::chiSimTest_IP_MMS_L2error);
 
   chi::RunBatch(argc, argv);
 

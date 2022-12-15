@@ -33,12 +33,12 @@ function Sigma_a(i,x,y,z)
     return 0.0
 end
 
--- Setboundary IDs
+-- Set boundary IDs
 -- xmin,xmax,ymin,ymax,zmin,zmax
 e_vol = chiLogicalVolumeCreate(RPP,0.99999,1000,-1000,1000,-1000,1000)
-w_vol = chiLogicalVolumeCreate(RPP,-1000,-0.9999,-1000,1000,-1000,1000)
+w_vol = chiLogicalVolumeCreate(RPP,-1000,0.00001,-1000,1000,-1000,1000)
 n_vol = chiLogicalVolumeCreate(RPP,-1000,1000,0.99999,1000,-1000,1000)
-s_vol = chiLogicalVolumeCreate(RPP,-1000,1000,-1000,-0.99999,-1000,1000)
+s_vol = chiLogicalVolumeCreate(RPP,-1000,1000,-1000,0.00001,-1000,1000)
 
 e_bndry = 0
 w_bndry = 1
@@ -53,17 +53,18 @@ chiVolumeMesherSetProperty(BNDRYID_FROMLOGICAL,s_vol,s_bndry)
 --chiMeshHandlerExportMeshToVTK("Mesh")
 
 --############################################### Add material properties
---#### CFEM stuff
-phys1 = chiCFEMDiffusionSolverCreate()
+--#### DFEM stuff
+phys1 = chiDFEMDiffusionSolverCreate()
+chiSolverSetBasicOption(phys1, "residual_tolerance", 1E-8)
 
-chiCFEMDiffusionSetBCProperty(phys1,"boundary_type",e_bndry,"dirichlet",0.0)
-chiCFEMDiffusionSetBCProperty(phys1,"boundary_type",w_bndry,"dirichlet",0.0)
-chiCFEMDiffusionSetBCProperty(phys1,"boundary_type",n_bndry,"dirichlet",0.0)
-chiCFEMDiffusionSetBCProperty(phys1,"boundary_type",s_bndry,"dirichlet",0.0)
+chiDFEMDiffusionSetBCProperty(phys1,"boundary_type",e_bndry,"dirichlet",0.0)
+chiDFEMDiffusionSetBCProperty(phys1,"boundary_type",w_bndry,"dirichlet",0.0)
+chiDFEMDiffusionSetBCProperty(phys1,"boundary_type",n_bndry,"dirichlet",0.0)
+chiDFEMDiffusionSetBCProperty(phys1,"boundary_type",s_bndry,"dirichlet",0.0)
 
 chiSolverInitialize(phys1)
 chiSolverExecute(phys1)
 
 ----############################################### Visualize the field function
 fflist,count = chiGetFieldFunctionList(phys1)
-chiExportFieldFunctionToVTK(fflist[1],"square_an_coef2","Flux_Diff")
+chiExportFieldFunctionToVTK(fflist[1],"square_an_coef2","Dfem_Flux_Diff")
