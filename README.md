@@ -29,4 +29,36 @@ Start adding source files.
    set(SOURCES ${SOURCES} ${MORE_SOURCES} PARENT_SCOPE) 
    ```
 
+## Step-3:
 
+- I developed new code in the new folder ```DFEMDIffusionSolver```.
+- I add a subfolder there, called ```lua``` where the lua wrappers are found. The wrappers allow to call the functions from the lua console (i.e., the input file)
+  - ```create_solver.cc```, the solver itself
+  - ```setBCproperty.cc```, the BC conditions
+  - ```lua_utils.h```, the header
+- the main code file, ```testIP.cc```, needs to register the lua functions
+
+Later, when the code gets folded into the main chi-tech, a few changes will need to take place. We describe those later.
+
+## Step-4:
+
+I wanted to create a simulation test that uses the new solver, but also contains a new function (the L2 error norm) that I do not want to be in the main solver.
+
+- I created a new folder structure that mimics the chi-tech simulation test folder structure: ```ChiTech\LuaTest\ ```
+- There, I added ```sim_IP_MMS_L2error.cc```, that basically calls my original solver, but also contains the L2 error computation. This file is actually the lua wrapper, same functionality as above.
+- I also added a header file, ```unit_tests.h```.
+- A ```CmakeLists.txt``` file needs to be added there
+  ```bash
+  file (GLOB_RECURSE MORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cc")
+  set(SOURCES ${SOURCES} ${MORE_SOURCES} PARENT_SCOPE)
+   ```
+- In the main code test, ```testIP.cc```, the new lua function needs to be registered.
+- In the main ```CmakeLists.txt``` file, the new subfolder needs to be added ```add_subdirectory("${PROJECT_SOURCE_DIR}/ChiTech/LuaTest/") ```
+
+## Step-5:
+
+When bringing th code into the main chi-tech repository, the following changes need to happen:
+- a
+- b
+- c
+- 
