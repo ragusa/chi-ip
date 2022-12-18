@@ -133,16 +133,6 @@ void dfem_diffusion::Solver::Initialize(bool verbose)
   chi::log.Log() << "Num globl DOFs: " << num_globl_dofs;
 
   //============================================= Initializes Mats and Vecs
-//  unknown_manager.AddUnknown(chi_math::UnknownType::SCALAR);
-//  std::vector<int64_t> nodal_nnz_in_diag;
-//  std::vector<int64_t> nodal_nnz_off_diag;
-//
-//  sdm.BuildSparsityPattern(nodal_nnz_in_diag,
-//                           nodal_nnz_off_diag,
-//                           unknown_manager);
-//
-//  A = chi_math::PETScUtils::CreateSquareMatrix(num_local_dofs,
-//                                               num_globl_dofs);
 
   const auto n = static_cast<int64_t>(num_local_dofs);
   const auto N = static_cast<int64_t>(num_globl_dofs);
@@ -190,7 +180,7 @@ void dfem_diffusion::Solver::Execute()
   VecSet(b, 0.0);
 
   chi::log.Log() << "Assembling system: ";
-  size_t icell = 0;
+
   for (const auto& cell : grid.local_cells)
   {
     const auto& cell_mapping = sdm.GetCellMapping(cell);
@@ -201,7 +191,7 @@ void dfem_diffusion::Solver::Execute()
 //    cout << std::endl;
 //    chi::log.Log() << "cell/node layout : " << icell;
 //    for (int i = 0; i < cc_nodes.size(); ++i){
-//      for (int j = 0; j < 3; ++j) {
+//      for (int j = 0; j < 3; ++j) { // jcr: hardcoded 3, ask Jan about .size for vec3
 //        cout << cc_nodes[i][j] << ", ";
 //      }
 //      cout << std::endl;
@@ -234,7 +224,6 @@ void dfem_diffusion::Solver::Execute()
             qp_data.JxW(qp);
         }//for qp
         MatSetValue(A, imap, jmap, entry_aij, ADD_VALUES);
-//        cout << "imap,jmap volumetric " << imap <<","<< jmap << "," << entry_aij << std::endl;
       }//for j
       double entry_rhs_i = 0.0;
       for (size_t qp : qp_data.QuadraturePointIndices())
@@ -274,8 +263,6 @@ void dfem_diffusion::Solver::Execute()
         if (cell.Type() == chi_mesh::CellType::POLYHEDRON)
           Ckappa = 4.0;
 
-//        cout << "kappa, hp=" << Ckappa << ", " << hm << ", " << hp_neigh << std::endl;
-
         //========================= Assembly penalty terms
         for (size_t fi = 0; fi < num_face_nodes; ++fi) {
           const int i = cell_mapping.MapFaceNode(f, fi);
@@ -298,14 +285,8 @@ void dfem_diffusion::Solver::Execute()
                      fqp_data.ShapeValue(i, qp) * fqp_data.ShapeValue(jm, qp) *
                      fqp_data.JxW(qp);
 
-//            const double pen_ = Ckappa *
-//                                (CallLua_iXYZFunction(L, "D_coef", imat, fqp_data.QPointXYZ(0)) / hm +
-//                                 CallLua_iXYZFunction(L, "D_coef", imat_neigh, fqp_data.QPointXYZ(0)) / hp_neigh) /
-//                                2.;
-//            cout << "penalty= " << pen_ << std::endl;
             MatSetValue(A, imap, jmmap, aij, ADD_VALUES);
             MatSetValue(A, imap, jpmap, -aij, ADD_VALUES);
-//            cout << "imap,jmmap, jpmap penalty " << imap << "," << jmmap << "," << jpmap << "," << aij << std::endl;
           }//for fj
         }//for fi
 
@@ -338,7 +319,6 @@ void dfem_diffusion::Solver::Execute()
 
             MatSetValue(A, imap, jmmap, aij, ADD_VALUES);
             MatSetValue(A, imap, jpmap, -aij, ADD_VALUES);
-//            cout << "imap,jmap gradient {{D d_n b_i}}[[Phi]]" << imap << "," << jmmap << "," << jpmap << std::endl;
           }//for fj
         }//for i
 
@@ -485,7 +465,6 @@ void dfem_diffusion::Solver::Execute()
         }//else BC
       }//boundary face
     }//for face f
-    icell++;
   }//for cell
 
  
