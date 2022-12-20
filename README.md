@@ -55,10 +55,19 @@ I wanted to create a simulation test that uses the new solver, but also contains
 - In the main code test, ```testIP.cc```, the new lua function needs to be registered.
 - In the main ```CmakeLists.txt``` file, the new subfolder needs to be added ```add_subdirectory("${PROJECT_SOURCE_DIR}/ChiTech/LuaTest/") ```
 
+
 ## Step-5:
 
-When bringing th code into the main chi-tech repository, the following changes need to happen:
-- a
-- b
-- c
-- 
+When bringing the code into the main chi-tech repository, 
+the following changes need to happen:
+- The folder ```DFEMDIffusionSolver``` gets placed in 
+  ```ChiModules``` and the ```lua_utils.h``` in that subfolder 
+  receives an update: we add ```RegisterLuaEntities()``` inside a namespace
+- We add 
+  - this line ```#include "DFEMDiffusion/lua/ip_lua_utils.h" ``` 
+  - and this line ```dfem_diffusion::dfem_diffusion_lua_utils::RegisterLuaEntities(L)```
+ 
+  in ```ChiModule\lua\chi_modules_lua.cc```
+- Add the proper subfolder in the ```CMakeLists.txt``` file 
+located in ```ChiModules``` (i.e., add this line ```add_subdirectory("DFEMDiffusion")```)
+- Update ```lua_test.cc``` to register the sim test
